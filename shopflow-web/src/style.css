@@ -1,0 +1,17 @@
+:root { font-family: Inter, system-ui, sans-serif; color: #17221d; background: #edf1ed; }
+body { margin: 0; }
+main { max-width: 980px; margin: auto; padding: 3rem 1.25rem; }
+header { border-bottom: 4px solid #1c6b4f; margin-bottom: 2rem; }
+h1 { font-size: 3.5rem; margin: 0; letter-spacing: -.06em; }
+h2 { margin-top: 0; }
+.eyebrow, .sku { color: #1c6b4f; font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
+section { background: white; border: 1px solid #cad4cc; padding: 1.5rem; margin: 1rem 0; box-shadow: 4px 4px 0 #cad4cc; }
+.catalog { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+article, .order { background: #f4f6f4; padding: 1rem; border-left: 4px solid #1c6b4f; }
+form { display: flex; align-items: end; gap: 1rem; flex-wrap: wrap; }
+label { display: grid; gap: .35rem; font-weight: 700; flex: 1; min-width: 140px; }
+input, select, button { font: inherit; padding: .7rem; border: 1px solid #829188; }
+button { cursor: pointer; color: white; background: #1c6b4f; font-weight: 800; }
+.error { background: #ffe5e0; border: 1px solid #b83c2d; padding: 1rem; }
+.status { background: #d5eee4; padding: .2rem .5rem; font-weight: 800; }
+.lookup { margin-bottom: 1rem; }

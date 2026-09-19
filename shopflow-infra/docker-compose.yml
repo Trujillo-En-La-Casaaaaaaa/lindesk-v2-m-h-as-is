@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: shopflow
+      POSTGRES_USER: shopflow
+      POSTGRES_PASSWORD: shopflow
+    volumes:
+      - shopflow-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopflow"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  notifications:
+    build: ./notification-emulator
+    environment:
+      PORT: 4010
+    ports:
+      - "4010:4010"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4010/health')"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  api:
+    build: ../shopflow-api
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgres://shopflow:shopflow@db:5432/shopflow
+      NOTIFICATION_URL: http://notifications:4010
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      notifications:
+        condition: service_healthy
+
+  web:
+    build: ../shopflow-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  shopflow-data:
