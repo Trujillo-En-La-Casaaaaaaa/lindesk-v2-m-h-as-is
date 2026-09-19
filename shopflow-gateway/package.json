@@ -1,0 +1,30 @@
+{
+  "name": "shopflow-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Thin public HTTP edge for ShopFlow: declarative route table, correlation-id propagation and byte-exact response passthrough to the orders and inventory services.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "dist/main.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts",
+    "test": "tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "5.1.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.13.14",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}

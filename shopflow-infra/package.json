@@ -1,0 +1,21 @@
+{
+  "name": "shopflow-infra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Composed runtime for ShopFlow: nine compose services, three service-owned databases with explicit healthcheck ordering, the deterministic notification provider stand-in, and the black-box behaviour-preservation and data-ownership suites that prove the migration.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "compose:config": "docker compose config",
+    "up": "docker compose up --build -d",
+    "down": "docker compose down -v",
+    "test": "node --test tests/",
+    "test:preservation": "node --test tests/behavior-preservation.test.js",
+    "test:guards": "node --test tests/ownership/"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

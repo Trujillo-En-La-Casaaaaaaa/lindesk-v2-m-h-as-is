@@ -1,0 +1,382 @@
+================================================================================
+RUNTIME PROBE EVIDENCE - database provisioning, seed reset, provider contract
+================================================================================
+
+Owner: shopflow-infra. Captured 2026-09-17 (Docker 28.2.2, Compose v2.37.1, Node v24.14.0,
+postgres:17-alpine, python:3.13-alpine).
+
+WHY THIS FILE EXISTS
+--------------------
+Acceptance criteria 2, 3, 6 and 7 are end-to-end criteria for the nine-service stack, and the
+stack as a whole cannot run in this workspace yet because four of the six composed repositories
+are missing (see README.md "Status of this delivery" and guard G6). However, three of the nine
+services - `orders-db`, `inventory-db`, `notifications-db` - and the unchanged provider emulator
+have NO dependency on those repositories. They were therefore started and probed directly, so the
+database provisioning, the deterministic seed, the reset semantics and the provider contract are
+verified with real Docker containers instead of being asserted.
+
+METHOD
+------
+The probe ran from `C:\Users\SEBRH\lindesk-db-probe`, a byte-identical copy of the delivered
+`docker-compose.yml`, `postgres/*-init.sql` and `notification-emulator/`. The copy was necessary
+because of an environment-level defect of Docker Desktop for Windows, reproduced independently of
+this repository:
+
+  * a minimal, unrelated compose project (three lines of YAML, `select 1;` as the init script)
+    with the SAME bind mount into `/docker-entrypoint-initdb.d` FAILS with
+    `ls: /docker-entrypoint-initdb.d/...: I/O error` when its directory is at a long path
+    (reproduced at this workspace path and at a synthetic ~130-character path), and
+  * the SAME minimal project SUCCEEDS at a short path (`C:\Users\SEBRH\...` or `%TEMP%`).
+
+  In other words: for paths of this length, Docker Desktop serves bind-mounted files to a non-root
+  container user with EIO. The postgres 17 entrypoint then fails its own guard
+  (`ls /docker-entrypoint-initdb.d/ > /dev/null`, which runs as the `postgres` user) and exits 1.
+  The delivered compose file is not involved: the identical file bytes, the identical target path
+  and the identical compose structure all succeed at a short path, and the same failure occurs with
+  a three-line unrelated compose file at this path length.
+
+  Consequence: `docker compose up --build -d` from this workspace directory cannot start ANY
+  database container (all three exit 1) regardless of how the compose file is written. Running the
+  same compose file from a short path works. This affects the evaluation workspace path only, not
+  the deliverable.
+
+WHAT IS PROVEN HERE
+-------------------
+1. All three database services reach `healthy` with their own image, credentials, volume and init
+   script (`docker compose ps --format json` -> `"Health":"healthy"`, `ExitCode: 0`).
+2. No database service publishes a host port: `Publishers[].PublishedPort = 0` for every database
+   service, `docker compose port <db> 5432` -> not published, and `PORTS` shows only `5432/tcp`.
+3. Each database contains exactly its owner's schema and nothing else:
+     orders-db        -> orders, order_operations, notification_outbox   (owner: orders)
+     inventory-db     -> products, stock_decrements                      (owner: inventory)
+     notifications-db -> notifications, notification_attempts            (owner: notifications)
+   No database contains another service's table, so the shared schema of `postgres/init.sql` has no
+   successor: ownership is enforced at the data level, not only in the compose topology.
+4. The deterministic seed is applied from `postgres/inventory-init.sql` unchanged:
+     product-a | SKU-A | Product A | 1200 | stock 10
+     product-b | SKU-B | Product B | 2500 | stock 5
+   and the orders and notifications tables start empty (0 rows).
+5. Reset semantics: after mutating the data (stock 10 -> 3, one order row, one notification row),
+   `docker compose down -v` followed by `docker compose up -d` restores exactly the seed
+   (`product-a=10`, `product-b=5`, orders 0, notifications 0) with all three services healthy again.
+6. The unchanged provider emulator builds, passes its healthcheck and speaks its contract on host
+   port 4010 (published, as specified):
+     GET  /health                          -> 200 {"ok":true}
+     POST /notifications (valid)           -> 201 {"id":"notification-0001","type":"ORDER_CONFIRMATION",
+                                                  "orderId":"...","customerEmail":"buyer@example.com"}
+     POST /notifications (wrong type)      -> 400 {"error":"Invalid notification"}
+     POST /notifications (no orderId)      -> 400 {"error":"Invalid notification"}
+     GET  /notifications                   -> 200 [ the stored record, in arrival order ]
+   The record echoes exactly the three legacy fields and the id is sequential (`notification-0001`),
+   matching the unchanged provider contract.
+
+WHAT IS NOT PROVEN HERE
+-----------------------
+The application services (`web`, `gateway`, `orders`, `inventory`, `notifications`) were not started:
+their build contexts (`../shopflow-web`, `../shopflow-orders`, `../shopflow-inventory`,
+`../shopflow-notifications`) do not exist in this workspace, which is the blocker recorded in
+tests/baseline/README.md. Therefore P1-P10 and criteria 2, 3 (application half), 7 and 8 remain
+unverified, and no HTTP behaviour of the public API on port 3001 is claimed.
+
+COMMANDS (run from the probe directory; `docker compose` = the delivered compose file)
+------------------------------------------------------------------------------------
+  docker compose up -d orders-db inventory-db notifications-db
+  docker compose ps
+  docker compose ps --format json
+  docker compose port orders-db 5432            # and inventory-db / notifications-db
+  docker compose exec -T orders-db        psql -U orders        -d orders        -c "\dt"
+  docker compose exec -T orders-db        psql -U orders        -d orders        -tAc "select (select count(*) from orders),(select count(*) from order_operations),(select count(*) from notification_outbox)"
+  docker compose exec -T inventory-db     psql -U inventory     -d inventory     -c "\dt"
+  docker compose exec -T inventory-db     psql -U inventory     -d inventory     -c "select id, sku, name, price_cents, stock from products order by id"
+  docker compose exec -T notifications-db psql -U notifications -d notifications -c "\dt"
+  docker compose exec -T notifications-db psql -U notifications -d notifications -tAc "select (select count(*) from notifications),(select count(*) from notification_attempts)"
+  # reset semantics
+  docker compose exec -T inventory-db     psql -U inventory     -d inventory     -c "update products set stock = 3 where id = 'product-a'"
+  docker compose exec -T orders-db        psql -U orders        -d orders        -c "insert into orders (...) values (...)"
+  docker compose exec -T notifications-db psql -U notifications -d notifications -c "insert into notifications (...) values (...)"
+  docker compose down -v
+  docker compose up -d orders-db inventory-db notifications-db
+  # provider contract (host port 4010)
+  docker compose up -d --build notification-emulator
+  curl -s -i http://localhost:4010/health
+  curl -s -i -X POST http://localhost:4010/notifications -H "content-type: application/json" \
+       -d '{"type":"ORDER_CONFIRMATION","orderId":"<id>","customerEmail":"buyer@example.com"}'
+  curl -s -i http://localhost:4010/notifications
+
+RAW OUTPUT
+----------
+The raw stdout of the probe session follows unchanged.
+
+=== CURRENT STATE ===  
+NAME                                       IMAGE                                    COMMAND                  SERVICE                 CREATED              STATUS                        PORTS
+lindesk-db-probe-inventory-db-1            postgres:17-alpine                       "docker-entrypoint.s…"   inventory-db            About a minute ago   Up About a minute (healthy)   5432/tcp
+lindesk-db-probe-notification-emulator-1   lindesk-db-probe-notification-emulator   "python server.py"       notification-emulator   46 seconds ago       Up 45 seconds (healthy)       0.0.0.0:4010->4010/tcp, [::]:4010->4010/tcp
+lindesk-db-probe-notifications-db-1        postgres:17-alpine                       "docker-entrypoint.s…"   notifications-db        About a minute ago   Up About a minute (healthy)   5432/tcp
+lindesk-db-probe-orders-db-1               postgres:17-alpine                       "docker-entrypoint.s…"   orders-db               About a minute ago   Up About a minute (healthy)   5432/tcp
+=== RESET TEST: mutate, down -v, up -d ===  
+--- mutate stock 10-, insert 1 order row, 1 notification row ---  
+ Container lindesk-db-probe-notifications-db-1  Running
+ Container lindesk-db-probe-inventory-db-1  Running
+ Container lindesk-db-probe-orders-db-1  Running
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+--- after mutation: stock / orders / notifications ---  
+product-a=3
+product-b=5
+1
+1
+--- docker compose down -v ---  
+ Container lindesk-db-probe-inventory-db-1  Stopping
+ Container lindesk-db-probe-orders-db-1  Stopping
+ Container lindesk-db-probe-notification-emulator-1  Stopping
+ Container lindesk-db-probe-notifications-db-1  Stopping
+ Container lindesk-db-probe-inventory-db-1  Stopped
+ Container lindesk-db-probe-inventory-db-1  Removing
+ Container lindesk-db-probe-inventory-db-1  Removed
+ Container lindesk-db-probe-notifications-db-1  Stopped
+ Container lindesk-db-probe-notifications-db-1  Removing
+ Container lindesk-db-probe-notifications-db-1  Removed
+ Container lindesk-db-probe-orders-db-1  Stopped
+ Container lindesk-db-probe-orders-db-1  Removing
+ Container lindesk-db-probe-orders-db-1  Removed
+ Container lindesk-db-probe-notification-emulator-1  Stopped
+ Container lindesk-db-probe-notification-emulator-1  Removing
+ Container lindesk-db-probe-notification-emulator-1  Removed
+ Volume lindesk-db-probe_inventory-data  Removing
+ Volume lindesk-db-probe_orders-data  Removing
+ Network lindesk-db-probe_default  Removing
+ Volume lindesk-db-probe_orders-data  Removed
+ Volume lindesk-db-probe_notifications-data  Removing
+ Volume lindesk-db-probe_inventory-data  Removed
+ Volume lindesk-db-probe_notifications-data  Removed
+ Network lindesk-db-probe_default  Removed
+--- docker compose up -d + wait ---  
+ Network lindesk-db-probe_default  Creating
+ Network lindesk-db-probe_default  Created
+ Volume "lindesk-db-probe_orders-data"  Creating
+ Volume "lindesk-db-probe_orders-data"  Created
+ Volume "lindesk-db-probe_inventory-data"  Creating
+ Volume "lindesk-db-probe_inventory-data"  Created
+ Volume "lindesk-db-probe_notifications-data"  Creating
+ Volume "lindesk-db-probe_notifications-data"  Created
+ Container lindesk-db-probe-inventory-db-1  Creating
+ Container lindesk-db-probe-notifications-db-1  Creating
+ Container lindesk-db-probe-orders-db-1  Creating
+ Container lindesk-db-probe-orders-db-1  Created
+ Container lindesk-db-probe-inventory-db-1  Created
+ Container lindesk-db-probe-notifications-db-1  Created
+ Container lindesk-db-probe-notifications-db-1  Starting
+ Container lindesk-db-probe-inventory-db-1  Starting
+ Container lindesk-db-probe-orders-db-1  Starting
+ Container lindesk-db-probe-notifications-db-1  Started
+ Container lindesk-db-probe-inventory-db-1  Started
+ Container lindesk-db-probe-orders-db-1  Started
+--- after reset: stock / orders / notifications / ps ---  
+product-a=10
+product-b=5
+0
+0
+NAME                                  IMAGE                COMMAND                  SERVICE            CREATED          STATUS                    PORTS
+lindesk-db-probe-inventory-db-1       postgres:17-alpine   "docker-entrypoint.s…"   inventory-db       17 seconds ago   Up 16 seconds (healthy)   5432/tcp
+lindesk-db-probe-notifications-db-1   postgres:17-alpine   "docker-entrypoint.s…"   notifications-db   17 seconds ago   Up 16 seconds (healthy)   5432/tcp
+lindesk-db-probe-orders-db-1          postgres:17-alpine   "docker-entrypoint.s…"   orders-db          17 seconds ago   Up 16 seconds (healthy)   5432/tcp
+  
+=== PROVIDER EMULATOR CONTRACT PROBE (host port 4010) ===  
+ Container lindesk-db-probe-notification-emulator-1  Creating
+ Container lindesk-db-probe-notification-emulator-1  Created
+ Container lindesk-db-probe-notification-emulator-1  Starting
+ Container lindesk-db-probe-notification-emulator-1  Started
+NAME                                       IMAGE                                    COMMAND              SERVICE                 CREATED          STATUS                    PORTS
+lindesk-db-probe-notification-emulator-1   lindesk-db-probe-notification-emulator   "python server.py"   notification-emulator   12 seconds ago   Up 11 seconds (healthy)   0.0.0.0:4010->4010/tcp, [::]:4010->4010/tcp
+GET /health -> 200 {"ok":true}
+POST /notifications (valid) -> 201 {"id":"notification-0001","type":"ORDER_CONFIRMATION","orderId":"11111111-1111-4111-8111-111111111111","customerEmail":"buyer@example.com"}
+POST /notifications (wrong type) -> 400 {"error":"Invalid notification"}
+POST /notifications (no orderId) -> 400 {"error":"Invalid notification"}
+GET /notifications -> 200 [{"id":"notification-0001","type":"ORDER_CONFIRMATION","orderId":"11111111-1111-4111-8111-111111111111","customerEmail":"buyer@example.com"}]
+GET /nope -> 404 {"error":"Not found"}
+  
+================================================================================  
+ADDENDUM - emulator service definition verified in the delivered project  
+================================================================================  
+  
+Command: docker compose up -d --build notification-emulator   [run from the repository root]  
+This closes the last service-definition gap: the emulator had only been exercised through a  
+byte-identical copy of the repository, and the handoff Validation command  
+curl -i http://localhost:4010/notifications is executed here verbatim against the  
+delivered project. The service has no bind mount, so the host path-length defect does not apply.  
+  
+#1 [internal] load local bake definitions
+#1 reading from stdin 754B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 136B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.13-alpine
+#3 DONE 1.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 31B done
+#5 DONE 0.0s
+
+#6 [1/3] FROM docker.io/library/python:3.13-alpine@sha256:7415fbc3c9e4979cc717d92377ab2bc7b2b4a2af1ac03cc52b5f3f88efedaf3a
+#6 resolve docker.io/library/python:3.13-alpine@sha256:7415fbc3c9e4979cc717d92377ab2bc7b2b4a2af1ac03cc52b5f3f88efedaf3a 0.0s done
+#6 DONE 0.0s
+
+#7 [2/3] WORKDIR /app
+#7 CACHED
+
+#8 [3/3] COPY server.py .
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 exporting manifest sha256:2f0e3c66c783fdb3e721f7b2bf6e0045ae3724131adbb38eaf89380ca000f187 done
+#9 exporting config sha256:ddf17f4fceffc34f17dae7dcd3a16aca8cd53b9baea40b2b7854d352998a6578 done
+#9 exporting attestation manifest sha256:f0fc01e1a6fc94debcb7e6f3358cc9e871509b44f100b522228844196e15dfcb 0.0s done
+#9 exporting manifest list sha256:5b95a6a40982c59773430d50a4bd65b884acb3affb23ef5a2f7bd09e40119e8f 0.0s done
+#9 naming to docker.io/library/shopflow-infra-notification-emulator:latest done
+#9 unpacking to docker.io/library/shopflow-infra-notification-emulator:latest done
+#9 DONE 0.1s
+
+#10 resolving provenance for metadata file
+#10 DONE 0.0s
+ notification-emulator  Built
+ Network shopflow-infra_default  Creating
+ Network shopflow-infra_default  Created
+ Container shopflow-infra-notification-emulator-1  Creating
+ Container shopflow-infra-notification-emulator-1  Created
+ Container shopflow-infra-notification-emulator-1  Starting
+ Container shopflow-infra-notification-emulator-1  Started
+---- docker compose ps notification-emulator ----  
+NAME                                     IMAGE                                  COMMAND              SERVICE                 CREATED          STATUS                    PORTS
+shopflow-infra-notification-emulator-1   shopflow-infra-notification-emulator   "python server.py"   notification-emulator   15 seconds ago   Up 15 seconds (healthy)   0.0.0.0:4010->4010/tcp, [::]:4010->4010/tcp
+---- docker compose port notification-emulator 4010 ----  
+0.0.0.0:4010
+---- the compose healthcheck command inside the delivered container ----  
+HEALTHCHECK_OK  
+---- POST one confirmation so the inspection endpoint has content ----  
+POST /notifications -> 201 {"id":"notification-0001","type":"ORDER_CONFIRMATION","orderId":"11111111-1111-4111-8111-111111111111","customerEmail":"buyer@example.com"}
+---- HANDOFF VALIDATION COMMAND: curl -i http://localhost:4010/notifications ----  
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100    141 100    141   0      0  13014      0                              0100    141 100    141   0      0  12740      0                              0100    141 100    141   0      0  12501      0                              0
+HTTP/1.0 200 OK
+Server: BaseHTTP/0.6 Python/3.13.15
+Date: Thu, 17 Sep 2026 21:16:40 GMT
+Content-Type: application/json
+Content-Length: 141
+
+[{"id":"notification-0001","type":"ORDER_CONFIRMATION","orderId":"11111111-1111-4111-8111-111111111111","customerEmail":"buyer@example.com"}]  
+================================================================================  
+ADDENDUM - provider stop/start semantics, and the P6 defect it exposed  
+================================================================================  
+  
+Command: docker compose up -d notification-emulator; POST one confirmation;  
+docker compose stop notification-emulator; docker compose start notification-emulator  
+  
+Findings: stop leaves the service unreachable - curl reports HTTP code 000 - and start brings it  
+back healthy. The emulator stores its records in the provider process memory, so the restart returns  
+an EMPTY inspection list: the record posted before the stop is gone after the start.  
+This is consistent with the provider contract - the provider owns no durable state and must not be  
+given any - but it invalidated the first P6 implementation, which counted records against a  
+pre-outage baseline and would therefore have failed on a correctly working stack. P6 now accepts  
+both outcomes for the provider list - reset or preserved - and keys its assertions on the order id.  
+  
+ Network shopflow-infra_default  Creating
+ Network shopflow-infra_default  Created
+ Container shopflow-infra-notification-emulator-1  Creating
+ Container shopflow-infra-notification-emulator-1  Created
+ Container shopflow-infra-notification-emulator-1  Starting
+ Container shopflow-infra-notification-emulator-1  Started
+---- 1. baseline: one record stored ----  
+POST -> 201 {"id":"notification-0001","type":"ORDER_CONFIRMATION","orderId":"11111111-1111-4111-8111-111111111111","customerEmail":"buyer@example.com"}
+---- 2. docker compose stop notification-emulator ----  
+ Container shopflow-infra-notification-emulator-1  Stopping
+ Container shopflow-infra-notification-emulator-1  Stopped
+NAME                                     IMAGE                                  COMMAND              SERVICE                 CREATED          STATUS                                PORTS
+shopflow-infra-notification-emulator-1   shopflow-infra-notification-emulator   "python server.py"   notification-emulator   22 seconds ago   Exited (137) Less than a second ago   
+curl while stopped -> HTTP code: 000
+---- 3. docker compose start notification-emulator ----  
+ Container shopflow-infra-notification-emulator-1  Starting
+ Container shopflow-infra-notification-emulator-1  Started
+NAME                                     IMAGE                                  COMMAND              SERVICE                 CREATED          STATUS                    PORTS
+shopflow-infra-notification-emulator-1   shopflow-infra-notification-emulator   "python server.py"   notification-emulator   34 seconds ago   Up 11 seconds (healthy)   0.0.0.0:4010->4010/tcp, [::]:4010->4010/tcp
+---- 4. records after the stop/start round trip ----  
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100      2 100      2   0      0    491      0                              0100      2 100      2   0      0    448      0                              0100      2 100      2   0      0    423      0                              0
+HTTP/1.0 200 OK
+Server: BaseHTTP/0.6 Python/3.13.15
+Date: Thu, 17 Sep 2026 21:18:54 GMT
+Content-Type: application/json
+Content-Length: 2
+
+[]  
+================================================================================  
+ADDENDUM - database restart invariant: an initialised database is not re-seeded  
+================================================================================  
+  
+Command: docker compose up -d orders-db inventory-db notifications-db; mutate stock 10 to 3 and insert  
+one order row; docker compose stop inventory-db orders-db; docker compose start inventory-db orders-db.  
+  
+Result: after the restart the database still reports product-a=3, product-b=5 and 1 order row and  
+all three services are healthy again. The init scripts run only when a volume is created, so a  
+restart never re-seeds and never wipes data - the invariant the recovery scenario P9 and the  
+reset semantics of the README depend on.  
+  
+=== DB RESTART INVARIANT PROBE: a restart must not re-seed or wipe an initialised database ===  
+ Network sfdb_default  Creating
+ Network sfdb_default  Created
+ Volume "sfdb_orders-data"  Creating
+ Volume "sfdb_orders-data"  Created
+ Volume "sfdb_notifications-data"  Creating
+ Volume "sfdb_notifications-data"  Created
+ Volume "sfdb_inventory-data"  Creating
+ Volume "sfdb_inventory-data"  Created
+ Container sfdb-notifications-db-1  Creating
+ Container sfdb-orders-db-1  Creating
+ Container sfdb-inventory-db-1  Creating
+ Container sfdb-notifications-db-1  Created
+ Container sfdb-orders-db-1  Created
+ Container sfdb-inventory-db-1  Created
+ Container sfdb-inventory-db-1  Starting
+ Container sfdb-orders-db-1  Starting
+ Container sfdb-notifications-db-1  Starting
+ Container sfdb-inventory-db-1  Started
+ Container sfdb-notifications-db-1  Started
+ Container sfdb-orders-db-1  Started
+---- after the first init ----  
+product-a=10
+product-b=5
+---- mutate: stock 10 -, and insert one order row ----  
+UPDATE 1
+INSERT 0 1
+---- before the restart ----  
+product-a=3
+product-b=5
+1
+---- docker compose stop inventory-db orders-db ----  
+ Container sfdb-orders-db-1  Stopping
+ Container sfdb-inventory-db-1  Stopping
+ Container sfdb-orders-db-1  Stopped
+ Container sfdb-inventory-db-1  Stopped
+---- docker compose start inventory-db orders-db ----  
+ Container sfdb-inventory-db-1  Starting
+ Container sfdb-orders-db-1  Starting
+ Container sfdb-inventory-db-1  Started
+ Container sfdb-orders-db-1  Started
+---- after the restart: data must be unchanged ----  
+product-a=3
+product-b=5
+1
+NAME                      IMAGE                COMMAND                  SERVICE            CREATED          STATUS                    PORTS
+sfdb-inventory-db-1       postgres:17-alpine   "docker-entrypoint.s…"   inventory-db       34 seconds ago   Up 16 seconds (healthy)   5432/tcp
+sfdb-notifications-db-1   postgres:17-alpine   "docker-entrypoint.s…"   notifications-db   34 seconds ago   Up 34 seconds (healthy)   5432/tcp
+sfdb-orders-db-1          postgres:17-alpine   "docker-entrypoint.s…"   orders-db          34 seconds ago   Up 16 seconds (healthy)   5432/tcp

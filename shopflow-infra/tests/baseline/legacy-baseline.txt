@@ -1,0 +1,424 @@
+================================================================================
+Step 0 - LEGACY BASELINE CAPTURE (owner: shopflow-infra)
+================================================================================
+
+Legacy sources used (frozen As-Is fixture, unmodified by this task):
+  * this repository:            commit e49c18d "Freeze F2 ShopFlow infrastructure fixture"
+    - docker-compose.yml        the legacy 4-service definition (db, notifications, api, web)
+    - postgres/init.sql         the shared products/orders schema plus the deterministic seed
+  * build contexts of the legacy compose file: ../shopflow-api and ../shopflow-web
+
+Commands run (before any file of this repository was changed, from this repository):
+
+  docker compose config                                   > tests/baseline/legacy-compose-config.txt 2>&1
+  docker compose up --build -d                            > tests/baseline/legacy-up-build.txt       2>&1
+  docker compose ps -a                                    > tests/baseline/legacy-ps.txt             2>&1
+  docker compose down -v                                  > tests/baseline/legacy-down.txt           2>&1
+
+Step 0 outcome: the legacy stack CANNOT BE STARTED in this workspace, because the legacy
+compose file builds the retired `../shopflow-api` repository from a sibling directory that
+does not exist here (and `../shopflow-web`, which exists but is an empty directory):
+
+  unable to prepare context: path "...\workspaces\shopflow-api" not found
+
+Consequence: no legacy process ever reached a listening state, so no scenario P1-P10 could
+be executed against the legacy stack. Every scenario is recorded as NOT RUN in
+tests/baseline/README.md together with that shared reason; P9 is additionally recorded as
+migration-only (the legacy topology has no individually restartable services).
+
+To still measure the suite itself against the legacy topology, the frozen legacy compose
+definition was restored temporarily from the fixture commit and the suite was executed with
+COMPOSE_FILE pointing at it. The result is in SECTION 2; the temporary copy was removed
+afterwards (it contains the retired names and would fail ownership guard G2):
+
+  git show HEAD:docker-compose.yml > docker-compose.legacy.yml
+  set COMPOSE_FILE=docker-compose.legacy.yml
+  node --test tests/behavior-preservation.test.js > tests/baseline/legacy-suite-run.txt 2>&1
+  del docker-compose.legacy.yml
+
+
+================================================================================
+SECTION 1 - RAW STEP 0 CAPTURE (pre-edit, this repository untouched)
+================================================================================
+
+--- 1.1 docker compose config (legacy compose file) -----------------------------
+
+name: shopflow-infra
+services:
+  api:
+    build:
+      context: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-api
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+        required: true
+      notifications:
+        condition: service_healthy
+        required: true
+    environment:
+      DATABASE_URL: postgres://shopflow:shopflow@db:5432/shopflow
+      NOTIFICATION_URL: http://notifications:4010
+      PORT: "3001"
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 3001
+        published: "3001"
+        protocol: tcp
+  db:
+    environment:
+      POSTGRES_DB: shopflow
+      POSTGRES_PASSWORD: shopflow
+      POSTGRES_USER: shopflow
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U shopflow
+      timeout: 2s
+      interval: 2s
+      retries: 20
+    image: postgres:17-alpine
+    networks:
+      default: null
+    volumes:
+      - type: volume
+        source: shopflow-data
+        target: /var/lib/postgresql/data
+        volume: {}
+      - type: bind
+        source: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-infra\postgres\init.sql
+        target: /docker-entrypoint-initdb.d/001-init.sql
+        read_only: true
+        bind:
+          create_host_path: true
+  notifications:
+    build:
+      context: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-infra\notification-emulator
+      dockerfile: Dockerfile
+    environment:
+      PORT: "4010"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:4010/health')
+      timeout: 2s
+      interval: 2s
+      retries: 20
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 4010
+        published: "4010"
+        protocol: tcp
+  web:
+    build:
+      context: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-web
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+        required: true
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "3000"
+        protocol: tcp
+networks:
+  default:
+    name: shopflow-infra_default
+volumes:
+  shopflow-data:
+    name: shopflow-infra_shopflow-data
+  
+--- 1.2 docker compose up --build -d \(legacy compose file\) -----------------------  
+  
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.86kB 0.0s done
+#1 DONE 0.0s
+unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+  
+--- 1.3 docker compose ps -a \(legacy compose file\) ------------------------------  
+  
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
+  
+--- 1.4 docker compose down -v \(legacy compose file\) ----------------------------  
+  
+ Volume shopflow-infra_shopflow-data  Removing
+ Volume shopflow-infra_shopflow-data  Removed
+  
+================================================================================  
+SECTION 2 - SUITE RUN AGAINST THE LEGACY TOPOLOGY (raw stdout and stderr)  
+================================================================================  
+  
+Command: set COMPOSE_FILE=docker-compose.legacy.yml  
+         node --test tests/behavior-preservation.test.js > tests/baseline/legacy-suite-run.txt 2>&1  
+  
+
+SCENARIO | STATUS | DETAIL
+P1 | FAIL | P1 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P2 | FAIL | P2 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P3 | FAIL | P3 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P4 | FAIL | P4 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P5 | FAIL | P5 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P6 | FAIL | P6 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P7 | FAIL | P7 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P8 | FAIL | P8 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P9 | MIGRATION-ONLY | the legacy topology is a single `api` monolith over one shared `db` (compose services: db, notifications, api, web): an ambiguous decrement outcome and a mid-saga crash cannot be produced there. Recorded as migration-only, not silently skipped.
+P10 | FAIL | P10 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eva...
+TOTAL | 0 PASSED | 9 FAILED | 1 MIGRATION-ONLY | 10 SCENARIOS
+▶ ShopFlow composed runtime - behaviour preservation (P1-P10)
+  ✖ P1 product catalog (1.151ms)
+  ℹ target=legacy
+  ✖ P2 order creation end to end (0.2805ms)
+  ℹ target=legacy
+  ✖ P3 inventory validation and no-op rejection (0.2645ms)
+  ℹ target=legacy
+  ✖ P4 order detail and status (0.2162ms)
+  ℹ target=legacy
+  ✖ P5 administrative transition to SHIPPED (0.2334ms)
+  ℹ target=legacy
+  ✖ P6 provider failure while the order survives (0.3467ms)
+  ℹ target=legacy
+  ✖ P7 no customer cancellation (0.2363ms)
+  ℹ target=legacy
+  ✖ P8 confirmation delivered once despite duplicate dispatches (0.2947ms)
+  ℹ target=legacy
+  ✔ P9 ambiguous failure, restart and stock exactness (0.3831ms)
+  ℹ target=legacy
+  ℹ P9 is migration-only: the legacy topology is a single `api` monolith over one shared `db` (compose services: db, notifications, api, web): an ambiguous decrement outcome and a mid-saga crash cannot be produced there. Recorded as migration-only, not silently skipped.
+  ✖ P10 composed runtime readiness (0.4641ms)
+  ℹ target=legacy
+✖ ShopFlow composed runtime - behaviour preservation (P1-P10) (1297.0166ms)
+ℹ BASE_URL=http://localhost:3001 PROVIDER_URL=http://localhost:4010 COMPOSE_FILE=docker-compose.legacy.yml
+ℹ RECOVERY_TIMEOUT_MS=20000 STARTUP_TIMEOUT_MS=240000
+ℹ stack target: legacy
+ℹ compose services: db, notifications, api, web
+ℹ setup: docker compose down -v status=0; docker compose up --build -d status=1; all healthy=false
+ℹ setup compose ps: (no containers)
+ℹ blocked: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+ℹ 
+SCENARIO | STATUS | DETAIL
+P1 | FAIL | P1 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P2 | FAIL | P2 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P3 | FAIL | P3 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P4 | FAIL | P4 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P5 | FAIL | P5 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P6 | FAIL | P6 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P7 | FAIL | P7 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P8 | FAIL | P8 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eval...
+P9 | MIGRATION-ONLY | the legacy topology is a single `api` monolith over one shared `db` (compose services: db, notifications, api, web): an ambiguous decrement outcome and a mid-saga crash cannot be produced there. Recorded as migration-only, not silently skipped.
+P10 | FAIL | P10 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-eva...
+TOTAL | 0 PASSED | 9 FAILED | 1 MIGRATION-ONLY | 10 SCENARIOS
+ℹ tests 11
+ℹ suites 0
+ℹ pass 1
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1382.1454
+
+✖ failing tests:
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P1 product catalog (1.151ms)
+  AssertionError [ERR_ASSERTION]: P1 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p1 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:376:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:973:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P2 order creation end to end (0.2805ms)
+  AssertionError [ERR_ASSERTION]: P2 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p2 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:395:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:974:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P3 inventory validation and no-op rejection (0.2645ms)
+  AssertionError [ERR_ASSERTION]: P3 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p3 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:439:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:975:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P4 order detail and status (0.2162ms)
+  AssertionError [ERR_ASSERTION]: P4 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p4 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:487:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:976:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P5 administrative transition to SHIPPED (0.2334ms)
+  AssertionError [ERR_ASSERTION]: P5 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p5 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:509:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:977:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P6 provider failure while the order survives (0.3467ms)
+  AssertionError [ERR_ASSERTION]: P6 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p6 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:541:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:978:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P7 no customer cancellation (0.2363ms)
+  AssertionError [ERR_ASSERTION]: P7 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p7 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:622:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:979:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P8 confirmation delivered once despite duplicate dispatches (0.2947ms)
+  AssertionError [ERR_ASSERTION]: P8 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p8 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:643:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:980:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:892:11
+✖ P10 composed runtime readiness (0.4641ms)
+  AssertionError [ERR_ASSERTION]: P10 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:336:10)
+      at p10 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:817:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:895:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:892:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:982:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+  
+================================================================================  
+SECTION 3 - MIGRATED STACK SNAPSHOT AT DELIVERY TIME  
+================================================================================  
+  
+The migrated definition is the delivered docker-compose.yml. Its run output is stored next  
+to this file as migrated-suite-run.txt; regenerate it with `node --test tests/`. 

@@ -1,0 +1,193 @@
+================================================================================
+GATEWAY PROBE EVIDENCE - the one implemented application service
+================================================================================
+
+Owner: shopflow-infra. Captured 2026-09-17 (Docker 28.2.2, Compose v2.37.1, node:22-alpine).
+Raw output at the end of this file.
+
+WHY THIS FILE EXISTS
+--------------------
+`shopflow-gateway` is the only Wave 3 repository that is implemented in this workspace, so its image
+- built from exactly the context the delivered `docker-compose.yml` names - can be run on its own.
+This probe therefore verifies the parts of acceptance criterion 7 that do not need the orders and
+inventory services: the gateway's liveness route, its route table (including the path rewrite), the
+documented `503 UNAVAILABLE` failure envelope, the prohibited routes and the healthcheck command that
+the compose file uses for all four Node services.
+
+METHOD
+------
+The gateway was started OUTSIDE compose, on purpose: its `depends_on` edges (`orders`, `inventory`,
+`condition: service_healthy`) cannot be satisfied while those repositories are missing, and compose
+would refuse to start it. The probe is therefore an isolated service probe, not a composed-stack run:
+
+  docker build -t gw-probe ../shopflow-gateway                    # the context the compose file uses
+  docker run -d --name gw-probe -p 3001:3001 \
+      -e PORT=3001 -e ORDERS_URL=http://orders:3002 \
+      -e INVENTORY_URL=http://inventory:3003 -e UPSTREAM_TIMEOUT_MS=5000 gw-probe
+
+The two upstream URLs are the delivered compose values; outside the compose network those hostnames do
+not resolve, which is exactly the transport-failure path the public contract documents as the new
+`503` failure mode.
+
+WHAT IS PROVEN HERE
+-------------------
+1. The gateway image builds from the build context the delivered compose file declares, publishes
+   `0.0.0.0:3001->3001/tcp` and reports `(healthy)`.
+2. `GET /health` -> `200 {"ok":true}` with a generated `x-correlation-id`, while both upstreams are
+   unreachable: liveness does not depend on the upstreams, as the frozen public contract requires.
+3. Every proxied public route answers the documented `503` envelope
+   `{"error":"Upstream service unavailable","code":"UNAVAILABLE"}` when its owning service cannot be
+   reached: `GET /products`, `POST /orders`, `GET /orders/:id` and `POST /admin/orders/:id/ship`
+   (the last one proving the documented `/admin/orders/:id/ship` -> `/orders/:id/ship` route mapping
+   exists and is proxied rather than answered locally).
+4. The prohibited routes do not exist: `POST /orders/:id/cancel` -> `404 {"error":"Not found","code":"NOT_FOUND"}`
+   and `DELETE /orders/:id` -> `404`, as does any unknown path. The gateway answers these itself; no
+   new public capability is reachable.
+5. `cors()` is enabled (`Access-Control-Allow-Origin: *` on every response), as before the migration.
+6. The exact healthcheck command the compose file uses for `gateway`, `orders`, `inventory` and
+   `notifications`
+   (`node -e "fetch('http://localhost:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"`)
+   returns exit code 0 inside the container, so that healthcheck form is proven to work on
+   `node:22-alpine`.
+
+WHAT IS NOT PROVEN HERE
+-----------------------
+No success path is claimed: with the orders and inventory services missing, `GET /products`,
+`POST /orders`, `GET /orders/:id` and ship cannot reach a 200/201/404/409 domain response, and the
+`web` service cannot be built at all. Criterion 7's domain responses, the whole of P1-P10 and criteria
+2, 3 (application half), 4, 8 therefore remain unverified; the gateway's own liveness, failure and
+prohibition behaviour is what this probe covers.
+
+RAW OUTPUT
+----------
+=== GATEWAY PROBE (image built from the context the delivered compose names) ===  
+7d46d6907d3f578d3002840f52001e49278ecb034bb41946f47c284c79cb4891
+--- docker ps (health of the probe container) ---  
+gw-probe Up 13 seconds (healthy) 0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp
+--- GET /health ---  
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+x-correlation-id: 192c5c89-302a-4011-a868-a36bce11a98d
+Content-Type: application/json; charset=utf-8
+Content-Length: 11
+Date: Thu, 17 Sep 2026 21:07:59 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"ok":true}  
+--- GET /products (upstream unreachable) ---  
+HTTP/1.1 503 Service Unavailable
+Access-Control-Allow-Origin: *
+x-correlation-id: 5e79d3f2-6201-4ec7-b864-e3a93cd98c04
+Content-Type: application/json; charset=utf-8
+Content-Length: 61
+Date: Thu, 17 Sep 2026 21:08:02 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"Upstream service unavailable","code":"UNAVAILABLE"}  
+--- POST /orders (upstream unreachable) ---  
+status 503 {"error":"Upstream service unavailable","code":"UNAVAILABLE"}
+--- GET /orders/:id (upstream unreachable) ---  
+HTTP/1.1 503 Service Unavailable
+Access-Control-Allow-Origin: *
+x-correlation-id: 94884499-2f9a-45d1-ac68-fa882aff7775
+Content-Type: application/json; charset=utf-8
+Content-Length: 61
+Date: Thu, 17 Sep 2026 21:08:05 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"Upstream service unavailable","code":"UNAVAILABLE"}  
+--- POST /admin/orders/:id/ship (upstream unreachable) ---  
+HTTP/1.1 503 Service Unavailable
+Access-Control-Allow-Origin: *
+x-correlation-id: ff4f0998-46db-4f54-808a-e0b32f4c6f08
+Content-Type: application/json; charset=utf-8
+Content-Length: 61
+Date: Thu, 17 Sep 2026 21:08:05 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"Upstream service unavailable","code":"UNAVAILABLE"}  
+--- POST /orders/:id/cancel (prohibited route) ---  
+HTTP/1.1 404 Not Found
+Access-Control-Allow-Origin: *
+x-correlation-id: fd64c69b-e408-42e8-a826-630a1ebc200d
+Content-Type: application/json; charset=utf-8
+Content-Length: 40
+Date: Thu, 17 Sep 2026 21:08:05 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"Not found","code":"NOT_FOUND"}  
+--- DELETE /orders/:id (prohibited route) ---  
+HTTP/1.1 404 Not Found
+Access-Control-Allow-Origin: *
+x-correlation-id: 09a94fed-a160-4497-8b3d-f8f5d541be33
+Content-Type: application/json; charset=utf-8
+Content-Length: 40
+Date: Thu, 17 Sep 2026 21:08:05 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"Not found","code":"NOT_FOUND"}  
+--- unknown path ---  
+HTTP/1.1 404 Not Found
+Access-Control-Allow-Origin: *
+x-correlation-id: 37cd7d07-7cf2-43cf-aa35-a046aa485946
+Content-Type: application/json; charset=utf-8
+Content-Length: 40
+Date: Thu, 17 Sep 2026 21:08:05 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"Not found","code":"NOT_FOUND"}  
+--- the compose healthcheck command executed inside the container ---  
+HEALTHCHECK_EXIT=0  
+  
+================================================================================  
+COMPOSED SERVICE DEFINITION PROBE - gateway started by the delivered compose file  
+================================================================================  
+  
+Command: docker compose up -d --no-deps gateway  
+--no-deps is required because the gateway declares depends_on orders and inventory with  
+condition service_healthy, and those repositories do not exist yet. Everything the compose  
+service definition contributes - built image, published host port, environment injection,  
+healthcheck and network attachment - is exercised unchanged.  
+  
+ Network shopflow-infra_default  Creating
+ Network shopflow-infra_default  Created
+ Volume "shopflow-infra_inventory-data"  Creating
+ Volume "shopflow-infra_inventory-data"  Created
+ Volume "shopflow-infra_orders-data"  Creating
+ Volume "shopflow-infra_orders-data"  Created
+ Container shopflow-infra-gateway-1  Creating
+ Container shopflow-infra-gateway-1  Created
+ Container shopflow-infra-gateway-1  Starting
+ Container shopflow-infra-gateway-1  Started
+---- COMPOSE PS ----  
+NAME                       IMAGE                    COMMAND                  SERVICE   CREATED          STATUS                    PORTS
+shopflow-infra-gateway-1   shopflow-infra-gateway   "docker-entrypoint.s…"   gateway   45 seconds ago   Up 44 seconds (healthy)   0.0.0.0:3001->3001/tcp, [::]:3001->3001/tcp
+---- PUBLISHED PORT ----  
+0.0.0.0:3001
+---- ENV INJECTED BY THE COMPOSE SERVICE DEFINITION ----  
+ORDERS_URL=http://orders:3002
+INVENTORY_URL=http://inventory:3003
+UPSTREAM_TIMEOUT_MS=5000
+PORT=3001
+---- ANY DATABASE VARIABLE? (must be empty) ----  
+NONE_DATABASE_VARIABLE  
+---- HOST PORT 3001 ----  
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Access-Control-Allow-Origin: *
+Content-Type: application/json; charset=utf-8
+Content-Length: 11
+ETag: W/"b-Ai2R8hgEarLmHKwesT1qcY913ys"
+Date: Thu, 17 Sep 2026 21:11:11 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"ok":true}---- HEALTHCHECK COMMAND INSIDE THE COMPOSE CONTAINER ----  
+HEALTHCHECK_EXIT=0  

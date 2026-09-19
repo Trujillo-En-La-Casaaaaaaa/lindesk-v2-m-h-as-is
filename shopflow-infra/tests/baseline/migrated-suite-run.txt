@@ -1,0 +1,326 @@
+▶ ShopFlow composed runtime - behaviour preservation (P1-P10)
+  ✖ P1 product catalog (1.0845ms)
+  ℹ target=migrated
+  ✖ P2 order creation end to end (0.3153ms)
+  ℹ target=migrated
+  ✖ P3 inventory validation and no-op rejection (0.2496ms)
+  ℹ target=migrated
+  ✖ P4 order detail and status (0.2365ms)
+  ℹ target=migrated
+  ✖ P5 administrative transition to SHIPPED (0.2474ms)
+  ℹ target=migrated
+  ✖ P6 provider failure while the order survives (0.3222ms)
+  ℹ target=migrated
+  ✖ P7 no customer cancellation (0.2244ms)
+  ℹ target=migrated
+  ✖ P8 confirmation delivered once despite duplicate dispatches (0.3202ms)
+  ℹ target=migrated
+
+SCENARIO | STATUS | DETAIL
+P1 | FAIL | P1 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P2 | FAIL | P2 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P3 | FAIL | P3 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P4 | FAIL | P4 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P5 | FAIL | P5 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P6 | FAIL | P6 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P7 | FAIL | P7 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P8 | FAIL | P8 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P9 | FAIL | P9 step 1: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1; target web: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory View build d...
+P10 | FAIL | P10 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such...
+TOTAL | 0 PASSED | 10 FAILED | 0 MIGRATION-ONLY | 10 SCENARIOS
+G6 repository listing used by this guard:
+G6 LISTING shopflow-gateway | repository root: yes | markers: package.json
+G6 LISTING shopflow-infra | repository root: yes | markers: package.json, docker-compose.yml, .git
+G6 LISTING shopflow-inventory | repository root: no | markers: (none)
+G6 LISTING shopflow-notifications | repository root: no | markers: (none)
+G6 LISTING shopflow-orders | repository root: no | markers: (none)
+G6 LISTING shopflow-web | repository root: no | markers: (none)
+
+GUARD | STATUS | DETAIL
+G1 | PASS | no cross-owner data access or DDL outside the owning repository (6 repositories, 28 files)
+G2 | PASS | every service holds only its own database URL, no foreign host and no retired name
+G3 | PASS | 9 services, one own database URL each, no published database port, healthcheck-gated ordering (3 init scripts)
+G4 | PASS | no sibling imports, one schema authority per table, 3/3 applied schema copies byte-identical to the owning repository
+G5 | PASS | no database driver, no DATABASE_URL, no SQL, no domain literal, exactly 5 routes (20 files)
+G6 | FAIL | 4 violation(s):
+G7 | PASS | the public route set is unchanged and 3001 is published by the gateway only
+TOTAL | 6/7 PASSED
+  ✖ P9 ambiguous failure, restart and stock exactness (1477.9932ms)
+  ℹ target=migrated
+  ✖ P10 composed runtime readiness (0.4827ms)
+  ℹ target=migrated
+✖ ShopFlow composed runtime - behaviour preservation (P1-P10) (3289.1238ms)
+ℹ BASE_URL=http://localhost:3001 PROVIDER_URL=http://localhost:4010 COMPOSE_FILE=docker-compose.yml
+ℹ RECOVERY_TIMEOUT_MS=20000 STARTUP_TIMEOUT_MS=240000
+ℹ stack target: migrated
+ℹ compose services: notification-emulator, inventory-db, inventory, orders-db, orders, gateway, notifications-db, web, notifications
+ℹ setup: docker compose down -v status=0; docker compose up --build -d status=1; all healthy=false
+ℹ setup compose ps: (no containers)
+ℹ blocked: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+ℹ 
+SCENARIO | STATUS | DETAIL
+P1 | FAIL | P1 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P2 | FAIL | P2 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P3 | FAIL | P3 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P4 | FAIL | P4 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P5 | FAIL | P5 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P6 | FAIL | P6 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P7 | FAIL | P7 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P8 | FAIL | P8 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such ...
+P9 | FAIL | P9 step 1: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1; target web: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory View build d...
+P10 | FAIL | P10 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such...
+TOTAL | 0 PASSED | 10 FAILED | 0 MIGRATION-ONLY | 10 SCENARIOS
+✔ G1 single writer per datum (24.673ms)
+✔ G2 no cross-service database access (14.9449ms)
+✔ G3 compose grants exactly one database per service (2.9542ms)
+✔ G4 no shared persistence shortcuts (11.1853ms)
+✔ G5 gateway has no domain logic and no persistence (11.0356ms)
+✖ G6 exactly six repositories, correct names (9.39ms)
+✔ G7 no new public capability (2.0926ms)
+✔ ownership guard summary (0.302ms)
+ℹ 
+GUARD | STATUS | DETAIL
+G1 | PASS | no cross-owner data access or DDL outside the owning repository (6 repositories, 28 files)
+G2 | PASS | every service holds only its own database URL, no foreign host and no retired name
+G3 | PASS | 9 services, one own database URL each, no published database port, healthcheck-gated ordering (3 init scripts)
+G4 | PASS | no sibling imports, one schema authority per table, 3/3 applied schema copies byte-identical to the owning repository
+G5 | PASS | no database driver, no DATABASE_URL, no SQL, no domain literal, exactly 5 routes (20 files)
+G6 | FAIL | 4 violation(s):
+G7 | PASS | the public route set is unchanged and 3001 is published by the gateway only
+TOTAL | 6/7 PASSED
+ℹ tests 19
+ℹ suites 0
+ℹ pass 7
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3448.124
+
+✖ failing tests:
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P1 product catalog (1.0845ms)
+  AssertionError [ERR_ASSERTION]: P1 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p1 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:381:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1003:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P2 order creation end to end (0.3153ms)
+  AssertionError [ERR_ASSERTION]: P2 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p2 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:400:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1004:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P3 inventory validation and no-op rejection (0.2496ms)
+  AssertionError [ERR_ASSERTION]: P3 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p3 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:444:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1005:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P4 order detail and status (0.2365ms)
+  AssertionError [ERR_ASSERTION]: P4 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p4 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:492:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1006:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P5 administrative transition to SHIPPED (0.2474ms)
+  AssertionError [ERR_ASSERTION]: P5 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p5 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:514:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1007:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P6 provider failure while the order survives (0.3222ms)
+  AssertionError [ERR_ASSERTION]: P6 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p6 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:546:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1008:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P7 no customer cancellation (0.2244ms)
+  AssertionError [ERR_ASSERTION]: P7 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p7 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:652:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1009:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P8 confirmation delivered once despite duplicate dispatches (0.3202ms)
+  AssertionError [ERR_ASSERTION]: P8 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p8 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:673:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1010:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P9 ambiguous failure, restart and stock exactness (1477.9932ms)
+  AssertionError [ERR_ASSERTION]: P9 step 1: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1; target web: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/5fmt9tn0d8avh6qyc9e19zvxb)
+      at startStackFromCleanVolumes (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:352:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async p9 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:745:16)
+      at async TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:7)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:3)
+      at async TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1011:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\behavior-preservation.test.js:922:11
+✖ P10 composed runtime readiness (0.4827ms)
+  AssertionError [ERR_ASSERTION]: P10 cannot run against this stack: the composed stack is not running after `docker compose down -v` + `up --build -d` (down=0, up=1): target inventory: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+      at assertStackReady (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:341:10)
+      at p10 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:847:3)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:925:13)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at TestContext.test (node:internal/test_runner/test:368:20)
+      at scenario (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:922:11)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/behavior-preservation.test.js:1012:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\ownership\ownership-guards.test.js:1058:3
+✖ G6 exactly six repositories, correct names (9.39ms)
+  Error: 4 violation(s):
+  G6 FAIL shopflow-web:0 repository root missing next to this repository (directory exists without package.json, docker-compose.yml or .git)
+  G6 FAIL shopflow-orders:0 repository root missing next to this repository (directory exists without package.json, docker-compose.yml or .git)
+  G6 FAIL shopflow-inventory:0 repository root missing next to this repository (directory exists without package.json, docker-compose.yml or .git)
+  G6 FAIL shopflow-notifications:0 repository root missing next to this repository (directory exists without package.json, docker-compose.yml or .git)
+      at guardG6 (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/ownership/ownership-guards.test.js:943:36)
+      at TestContext.<anonymous> (file:///C:/Users/SEBRH/Documents/02.Personal/lindesk-evaluation/experiments/v2/scenarios/M-H/outputs/workspaces/20260917-104756/.lindesk/coder/workspaces/shopflow-infra/tests/ownership/ownership-guards.test.js:1064:22)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)

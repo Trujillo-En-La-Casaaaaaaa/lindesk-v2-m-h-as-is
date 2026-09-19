@@ -1,0 +1,93 @@
+name: shopflow-infra
+services:
+  api:
+    build:
+      context: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-api
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+        required: true
+      notifications:
+        condition: service_healthy
+        required: true
+    environment:
+      DATABASE_URL: postgres://shopflow:shopflow@db:5432/shopflow
+      NOTIFICATION_URL: http://notifications:4010
+      PORT: "3001"
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 3001
+        published: "3001"
+        protocol: tcp
+  db:
+    environment:
+      POSTGRES_DB: shopflow
+      POSTGRES_PASSWORD: shopflow
+      POSTGRES_USER: shopflow
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U shopflow
+      timeout: 2s
+      interval: 2s
+      retries: 20
+    image: postgres:17-alpine
+    networks:
+      default: null
+    volumes:
+      - type: volume
+        source: shopflow-data
+        target: /var/lib/postgresql/data
+        volume: {}
+      - type: bind
+        source: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-infra\postgres\init.sql
+        target: /docker-entrypoint-initdb.d/001-init.sql
+        read_only: true
+        bind:
+          create_host_path: true
+  notifications:
+    build:
+      context: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-infra\notification-emulator
+      dockerfile: Dockerfile
+    environment:
+      PORT: "4010"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:4010/health')
+      timeout: 2s
+      interval: 2s
+      retries: 20
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 4010
+        published: "4010"
+        protocol: tcp
+  web:
+    build:
+      context: C:\Users\SEBRH\Documents\02.Personal\lindesk-evaluation\experiments\v2\scenarios\M-H\outputs\workspaces\20260917-104756\.lindesk\coder\workspaces\shopflow-web
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+        required: true
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 3000
+        published: "3000"
+        protocol: tcp
+networks:
+  default:
+    name: shopflow-infra_default
+volumes:
+  shopflow-data:
+    name: shopflow-infra_shopflow-data

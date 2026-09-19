@@ -1,21 +1,119 @@
+# ShopFlow composed runtime (owner: shopflow-infra).
+#
+# Nine services: the web UI, four application services, the deterministic notification
+# provider emulator and three service-owned databases. Every application service talks to
+# exactly one database - its own (see runtime/environment-contract.md and the ownership
+# guards in tests/ownership/). The retired shared `db`/`api` services are gone and nothing
+# here builds the retired monolith repository.
+#
+# Start: docker compose up --build
+# Reset: docker compose down -v   (drops the three database volumes and restores the seed)
+#
+# This file is parsed by tests/ownership/ownership-guards.test.js (guard G3), so values are
+# kept to plain scalars and single-line flow sequences. There are no inline comments.
+
 services:
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_DB: shopflow
-      POSTGRES_USER: shopflow
-      POSTGRES_PASSWORD: shopflow
-    volumes:
-      - shopflow-data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+  web:
+    build:
+      context: ../shopflow-web
+    ports:
+      - "3000:3000"
+    depends_on:
+      gateway:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shopflow"]
+      # Static check on `/`: the web image is the existing nginx reverse proxy, so busybox
+      # wget is used when present and curl otherwise.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/ || curl -fsS -o /dev/null http://127.0.0.1:3000/"]
       interval: 2s
       timeout: 2s
-      retries: 20
+      retries: 30
+
+  gateway:
+    build:
+      context: ../shopflow-gateway
+    environment:
+      PORT: 3001
+      ORDERS_URL: http://orders:3002
+      INVENTORY_URL: http://inventory:3003
+      UPSTREAM_TIMEOUT_MS: 5000
+    ports:
+      - "3001:3001"
+    depends_on:
+      orders:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  orders:
+    build:
+      context: ../shopflow-orders
+    environment:
+      PORT: 3002
+      ORDERS_DATABASE_URL: postgres://orders:orders@orders-db:5432/orders
+      INVENTORY_URL: http://inventory:3003
+      NOTIFICATIONS_URL: http://notifications:3004
+      SAGA_INTERVAL_MS: 1000
+      OUTBOX_INTERVAL_MS: 1000
+      OUTBOX_BACKOFF_BASE_MS: 250
+      INLINE_CALL_ATTEMPTS: 2
+      UPSTREAM_TIMEOUT_MS: 3000
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  inventory:
+    build:
+      context: ../shopflow-inventory
+    environment:
+      PORT: 3003
+      INVENTORY_DATABASE_URL: postgres://inventory:inventory@inventory-db:5432/inventory
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
 
   notifications:
-    build: ./notification-emulator
+    build:
+      context: ../shopflow-notifications
+    environment:
+      PORT: 3004
+      NOTIFICATIONS_DATABASE_URL: postgres://notifications:notifications@notifications-db:5432/notifications
+      PROVIDER_URL: http://notification-emulator:4010
+      PROVIDER_TIMEOUT_MS: 3000
+      DELIVERY_INTERVAL_MS: 1000
+      DELIVERY_BACKOFF_BASE_MS: 250
+      DELIVERY_MAX_ATTEMPTS: 0
+    depends_on:
+      notifications-db:
+        condition: service_healthy
+      notification-emulator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3004/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  notification-emulator:
+    build:
+      context: ./notification-emulator
     environment:
       PORT: 4010
     ports:
@@ -26,26 +124,52 @@ services:
       timeout: 2s
       retries: 20
 
-  api:
-    build: ../shopflow-api
+  orders-db:
+    image: postgres:17-alpine
     environment:
-      PORT: 3001
-      DATABASE_URL: postgres://shopflow:shopflow@db:5432/shopflow
-      NOTIFICATION_URL: http://notifications:4010
-    ports:
-      - "3001:3001"
-    depends_on:
-      db:
-        condition: service_healthy
-      notifications:
-        condition: service_healthy
+      POSTGRES_DB: orders
+      POSTGRES_USER: orders
+      POSTGRES_PASSWORD: orders
+    volumes:
+      - orders-data:/var/lib/postgresql/data
+      - ./postgres/orders-init.sql:/docker-entrypoint-initdb.d/001-orders-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orders"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
 
-  web:
-    build: ../shopflow-web
-    ports:
-      - "3000:3000"
-    depends_on:
-      - api
+  inventory-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+    volumes:
+      - inventory-data:/var/lib/postgresql/data
+      - ./postgres/inventory-init.sql:/docker-entrypoint-initdb.d/001-inventory-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  notifications-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: notifications
+      POSTGRES_PASSWORD: notifications
+    volumes:
+      - notifications-data:/var/lib/postgresql/data
+      - ./postgres/notifications-init.sql:/docker-entrypoint-initdb.d/001-notifications-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notifications"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
 
 volumes:
-  shopflow-data:
+  orders-data:
+  inventory-data:
+  notifications-data:

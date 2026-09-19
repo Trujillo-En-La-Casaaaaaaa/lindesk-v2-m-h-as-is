@@ -1,0 +1,4 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.86kB 0.0s done
+#1 DONE 0.0s
+unable to prepare context: path "C:\\Users\\SEBRH\\Documents\\02.Personal\\lindesk-evaluation\\experiments\\v2\\scenarios\\M-H\\outputs\\workspaces\\20260917-104756\\.lindesk\\coder\\workspaces\\shopflow-api" not found
